@@ -48,9 +48,9 @@ assert firstEnteringBasement('()())') == 5
 # Display info message
 print("\nGive a string of '(' and ')' characters, where '(' means go up one floor, while ')' means go one floor down.\n");
 
-instructionString = utility.readInputList()
+instructionString = utility.readInputList()[0]
 
-checkInput(instructionString[0])
+checkInput(instructionString)
 
 # Display results
 print(f"lastFloor = {lastFloor(instructionString)}, firstEnteringBasement = {firstEnteringBasement(instructionString)}")
