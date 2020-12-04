@@ -1,70 +1,58 @@
 import utility # my own utility.pl file
 import re # match
 
-def countValidPassports(passports):
-    numValid = 0
-    currentPassport = ['byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid']
-    for line in passports:
-        tokens = line.split()
-        if len(tokens) == 0:
-            if len(currentPassport) == 0:
-                numValid += 1
-            currentPassport = ['byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid']
-            
-        for field in tokens:
-            key, value = field.split(':')
-            if key in currentPassport:
-                currentPassport.remove(key)
-                
-        print(f'{line = }\t{currentPassport = }')
-    return numValid
+# Jump table for part2: key, value -> isValid (True or False)
+# There is no 'cid' in jumpTable, because jumpTable will return True by default
+jumpTable = {
+    'byr': lambda value: (1920 <= int(value) <= 2002),
+    'iyr': lambda value: (2010 <= int(value) <= 2020),
+    'eyr': lambda value: (2020 <= int(value) <= 2030),
+    'hgt': lambda value: (value[-2:] == 'cm' and 150 <= int(value[:-2]) <= 193
+                          or value[-2:] == 'in' and 59 <= int(value[:-2]) <= 76),
+    'hcl': lambda value: (re.match('^#[a-f0-9]+', value) != None),
+    'ecl': lambda value: (value in 'amb,blu,brn,gry,grn,hzl,oth'),
+    'pid': lambda value: (len(value) == 9 and re.match('^[0-9]+', value))}
 
-def isValid(key, value):
-    if key == 'byr':
-        return 1920 <= int(value) <= 2002
-    elif key == 'iyr':
-        return 2010 <= int(value) <= 2020
-    elif key == 'eyr':
-        return 2020 <= int(value) <= 2030
-    elif key == 'hgt':
-        if value[-2:] == 'cm':
-            return 150 <= int(value[:-2]) <= 193
-        elif value[-2:] == 'in':
-            return 59 <= int(value[:-2]) <= 76
-        return False
-    elif key == 'hcl':
-        return re.match('^#[a-f0-9]+', value) != None
-    elif key == 'ecl':
-        return value in ['amb', 'blu', 'brn', 'gry', 'grn', 'hzl', 'oth']
-    elif key == 'pid':
-        return len(value) == 9 and re.match('^[0-9]+', value) != None
-    elif key == 'cid':
-        return True
-    return False
-
-def countValidPassports2(passports):
+# Counts the number of valid passports in the list.
+# Passports may contain more lines and are separated by empty lines.
+# A passport is valid if,
+# Part 1: contains all the relevant fields: byr iyr eyr hgt hcl ecl pid
+# Part 2: same as Part 1, plus all the relevant fields have the required properties
+def countValidPassports(passports, part2 = False):
+    passports += [''] # add temporary extra line break
     numValid = 0
-    currentPassport = ['byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid']
-    for line in passports:
-        tokens = line.split()
-        if len(tokens) == 0:
-            if len(currentPassport) == 0:
-                numValid += 1
-            currentPassport = ['byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid']
-            
-        for field in tokens:
-            key, value = field.split(':')
-            if not isValid(key, value):
-                print(f'{key = }, {value = }, {isValid(key, value) = }')
-            if key in currentPassport and isValid(key, value):
-                currentPassport.remove(key)
-                
-        if len(currentPassport) == 0:
-            print(f'{line = }\t{currentPassport = }')
-    print(f'{numValid = }')
-    return numValid
     
-smallExample = [
+    defaultPassport = 'byr iyr eyr hgt hcl ecl pid'.split() # no 'cid' here either
+    currentPassport = defaultPassport.copy() # start a new passport
+    validityCheck = jumpTable if part2 else {}
+    
+    for line in passports:
+        # eg. line = 'ecl:gry pid:860033327 eyr:2020 hcl:#fffffd'
+        tokens = line.split()
+        
+        if not tokens: # empty line
+            if not currentPassport: # all relevant keys were included
+                numValid += 1
+            currentPassport = defaultPassport.copy() # start a new passport
+        
+        else: # line has fields
+            for field in tokens:
+                # eg. field = 'hgt:181cm'
+                key, value = field.split(':')
+                
+                # Check if key is relevant and value is valid or has no rule to check
+                if (key in currentPassport
+                        and (key not in validityCheck or validityCheck[key](value))):
+                    currentPassport.remove(key) # remove relevant keys one by one
+    
+    del passports[-1] # remove temporary exta line break
+    return numValid
+
+
+
+# Check test cases
+
+twoValidPassports = [
     'ecl:gry pid:860033327 eyr:2020 hcl:#fffffd',
     'byr:1937 iyr:2017 cid:147 hgt:183cm',
     '',
@@ -77,10 +65,9 @@ smallExample = [
     'hgt:179cm',
     '',
     'hcl:#cfa07d eyr:2025 pid:166559648',
-    'iyr:2011 ecl:brn hgt:59in',
-    '']
+    'iyr:2011 ecl:brn hgt:59in']
 
-small2 = [
+fourInvalidPassports = [
     'eyr:1972 cid:100',
     'hcl:#18171d ecl:amb hgt:170 pid:186cm iyr:2018 byr:1926',
     '',
@@ -93,10 +80,9 @@ small2 = [
     '',
     'hgt:59cm ecl:zzz',
     'eyr:2038 hcl:74454a iyr:2023',
-    'pid:3556412378 byr:2007',
-    '']
+    'pid:3556412378 byr:2007']
 
-small3 = [
+fourValidPassports = [
     'pid:087499704 hgt:74in ecl:grn iyr:2012 eyr:2030 byr:1980',
     'hcl:#623a2f',
     '',
@@ -108,20 +94,18 @@ small3 = [
     'pid:545766238 ecl:hzl',
     'eyr:2022',
     '',
-    'iyr:2010 hgt:158cm hcl:#b6652a ecl:blu byr:1944 eyr:2021 pid:093154719',
-    '']
+    'iyr:2010 hgt:158cm hcl:#b6652a ecl:blu byr:1944 eyr:2021 pid:093154719']
 
-#assert countValidPassports(smallExample) == 2
-#assert countValidPassports2(small2) == 0
-assert countValidPassports2(small3) == 4
+assert countValidPassports(twoValidPassports) == 2
+assert countValidPassports(fourInvalidPassports, part2 = True) == 0
+assert countValidPassports(fourValidPassports, part2 = True) == 4
+
+
 
 # Display info message
-print("Give monorail instruction list:\n")
+print("Give passport batch file:\n")
 passports = utility.readInputList()
-passports += ['']
-print(passports)
-print('STOP')
 
 # Display results
 print(f'{countValidPassports(passports) = }')
-print(f'{countValidPassports2(passports) = }')
+print(f'{countValidPassports(passports, part2 = True) = }')
