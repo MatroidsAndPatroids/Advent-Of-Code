@@ -1,80 +1,85 @@
 import utility # my own utility.pl file
-import re
 
-def increment(character):
-	if character == 'z':
-		return 'a'
-	return chr(ord(character) + 1)
+def toNumberList(password):
+	return [ord(character) for character in password]
 
-def increasingLetters(password):
-	maxCount = 0
-	count = 1
-	previousCharacter = ''
-	for character in password:
-		if not previousCharacter:
-			x = 1
-		elif character != 'a' and character == increment(previousCharacter):
-			count += 1
-		else:
-			maxCount = max(count, maxCount)
-			count = 1
-		previousCharacter = character
-	maxCount = max(count, maxCount)
-	return maxCount
+def toString(numberList):
+	return ''.join([chr(number) for number in numberList])
 
-assert increasingLetters('hijklmmn') == 6
-assert increasingLetters('abbceffg') == 2
-assert increasingLetters('abbcegjk') == 2
+forbidden = toNumberList('iol')
+a = ord('a')
+z = ord('z')
 
-def iol(password):
-	return password.count('i') + password.count('o') + password.count('l')
+def increment(number):
+	if number in forbidden:
+		return number + 2
+	if number == z:
+		return a
+	return number + 1
 
-def numPairs(password):
-	count = 0
-	previousCharacter = ''
-	for character in password:
-		if character == previousCharacter:
-			count += 1
-			previousCharacter = ''
-		else:
-			previousCharacter = character
-	return count
+def next(numberList):
+	for i in range(len(numberList) - 1, -1, -1):
+		numberList[i] = increment(numberList[i])
+		if numberList[i] != a:
+			break
+	return numberList
+
+def straightThree(numberList):
+	for i in range(len(numberList) - 2):
+		if numberList[i] + 2 == numberList[i + 1] + 1 == numberList[i + 2]:
+			return True
+	return False
+
+assert straightThree(toNumberList('hijklmmn'))
+assert not straightThree(toNumberList('abbceffg'))
+assert not straightThree(toNumberList('abbcegjk'))
+
+def doublePair(numberList):
+	numPair = 0
+	prevWasPair = False
+	for i in range(len(numberList) - 1):
+		if prevWasPair:
+			prevWasPair = False
+			continue
+		if numberList[i] == numberList[i + 1]:
+			prevWasPair = True
+			numPair += 1
+		if numPair == 2:
+			return True
+	return False
+
+assert straightThree(toNumberList('abcdffaa'))
+assert doublePair(toNumberList('abcdffaa'))
+assert straightThree(toNumberList('abcdffaa')) and doublePair(toNumberList('abcdffaa'))
+assert straightThree(toNumberList('ghjaabcc')) and doublePair(toNumberList('ghjaabcc'))
 
 # A password is valid if it meets all three of these requirements
 # 1. includes one increasing straight of at least three letters, like abc
 # 2. does not contain the letters i, o, or l
 # 3. contains at least two different, non-overlapping pairs of letters, like aa
-def isValid(password):
-	return increasingLetters(password) >= 3 and iol(password) == 0 and numPairs(password) >= 2
-
-assert isValid('abcdffaa')
-assert isValid('ghjaabcc')
-
-# Increment password string by character
-def increasePassword(password):
-	for i in range(len(password) - 1, 0, -1):
-		password = password[:i] + increment(password[i]) + password[i + 1:]
-		if password[i] != 'a':
-			break
-	return password
-
 def findNextValid(password):
-	nextPassword = increasePassword(password)
-	while not isValid(nextPassword):
-		nextPassword = increasePassword(nextPassword)
-	return nextPassword
+	# Increment first in case it was already valid
+	nextNumberList = next(toNumberList(password))
+	# Preprocess ('ghijklmn' becomes 'ghjaaaaa')
+	for i in range(len(nextNumberList)):
+		if nextNumberList[i] in forbidden:
+			nextNumberList[i] += 1
+			nextNumberList[i + 1:] = (len(nextNumberList) - i - 1) * [a]
+			break
+	while not straightThree(nextNumberList) or not doublePair(nextNumberList):
+		nextNumberList = next(nextNumberList)
+	return toString(nextNumberList)
 
 assert findNextValid('abcdefgh') == 'abcdffaa'
 assert findNextValid('ghijklmn') == 'ghjaabcc'
 
 # Display info message
-print("\nGive a password:\n");
-
-password = utility.readInputList()[0]
-nextPassword = findNextValid(password)
-nextPasswordAfterThat = findNextValid(nextPassword)
+print("Give a password:\n");
+password = utility.readInputList(joinedWith = '')
 
 # Display results
+nextPassword = findNextValid(password)
+nextPasswordAfterThat = findNextValid(nextPassword)
 print(f'{password} -> {nextPassword} -> {nextPasswordAfterThat}')
 
 #cqjxjnds

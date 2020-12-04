@@ -1,49 +1,35 @@
 import utility # my own utility.pl file
 
 class Computer:
-	def __init__(self, instructionList):
-		self.instructionList = instructionList
-		self.reset()
-
-	def reset(self, startA = 0, startB = 0):
+	# Jump table: register, argument -> registerNew, increment
+	jumpTable = {
+		'hlf': lambda reg, dummy: (reg >> 1, 1),
+		'tpl': lambda reg, dummy: (3 * reg, 1),
+		'inc': lambda reg, dummy: (reg + 1, 1),
+		'jmp': lambda reg, arg: (reg, arg),
+		'jie': lambda reg, arg: (reg, arg if reg % 2 == 0 else 1),
+		'jio': lambda reg, arg: (reg, arg if reg == 1 else 1)}
+	
+	def __init__(self, startA = 0, startB = 0):
 		self.registers = {'a' : startA, 'b' : startB}
-		self.currentInstruction = 0
+		self.currentInstruction = 0 # instruction pointer
 
 	def __str__(self):
-		if 0 <= self.currentInstruction < len(self.instructionList):
-			return f'{self.currentInstruction}: {self.instructionList[self.currentInstruction]} {self.registers}'
-		return f'{self.currentInstruction}: NAN {self.registers}'
+		return f'{self.currentInstruction = }, {self.registers = }'
 
-	def execute(self, startA = 0, startB = 0):
-		self.reset(startA, startB)
-
-		while 0 <= self.currentInstruction < len(self.instructionList):
-			instruction = self.instructionList[self.currentInstruction].replace(',', '').split(' ')
+	def execute(self, instructions):
+		while 0 <= self.currentInstruction < len(instructions):
+			# Parse 'jio a, +2'
+			instruction = instructions[self.currentInstruction].replace(',', '').split(' ')
 			command = instruction[0]
-			argument = instruction[1]
-			increment = 1
-			print(f'{self} {instruction}')
-
-			if command == 'hlf':
-				self.registers[argument] >>= 1
-			elif command == 'tpl':
-				self.registers[argument] *= 3
-			elif command == 'inc':
-				self.registers[argument] += 1
-			elif command == 'jmp':
-				increment = int(argument)
-			elif command == 'jie':
-				if self.registers[argument] % 2 == 0:
-					increment = int(instruction[2])
-			elif command == 'jio':
-				if self.registers[argument] == 1:
-					increment = int(instruction[2])
-			else:
-				break
-
+			register = instruction[1]
+			argument = int(instruction[2]) if len(instruction) > 2 else 0
+			if register not in 'ab': # jmp command has its argument at the register's place
+				argument = int(register)
+				register = 'a'
+			# Apply the jumptable and increase the instruction pointer
+			self.registers[register], increment = self.jumpTable[command](self.registers[register], argument)
 			self.currentInstruction += increment
-
-		print(f'{self}')
 		return self
 
 smallExample = [
@@ -51,16 +37,13 @@ smallExample = [
 	'jio a, +2',
 	'tpl a',
 	'inc a']
-
-assert Computer(smallExample).execute(0, 0).registers['a'] == 2
+assert Computer().execute(smallExample).registers['a'] == 2
 
 # Display info message
-print("\nGive a list of computer instructions:\n")
+print("Give a list of computer instructions:\n")
+instructions = utility.readInputList()
 
-inputStringList = utility.readInputList()
-computer = Computer(inputStringList).execute(0, 0)
-print('\n' * 10)
-computer.execute(1, 0)
 # Display results
-#print(computer.execute())
+print(f'First run: {Computer().execute(instructions)}')
+print(f'Second run: {Computer(1, 0).execute(instructions)}')
 

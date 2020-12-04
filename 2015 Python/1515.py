@@ -1,148 +1,69 @@
 import utility # my own utility.pl file
-import random
+import re # compile
+import pandas # data frame
 
-# Parse 'Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8'
-class Ingredient:
-	def __init__(self, descriptionString):
-		str = descriptionString.split(' ')
-		assert len(str) == 11
-		self.name = str[0][:-1]
-		self.capacity = int(str[2][:-1])
-		self.durability = int(str[4][:-1])
-		self.flavor = int(str[6][:-1])
-		self.texture = int(str[8][:-1])
-		self.calories = int(str[10])
-		self.teaSpoons = 0
-
+class Recipe(pandas.DataFrame):
+	def __init__(self, ingredientDescriptions):
+		# Parse 'Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8'
+		line_re = re.compile(r"^(?P<Name>\w+): capacity (?P<Capacity>-?\d+), durability (?P<Durability>-?\d+), flavor (?P<Flavor>-?\d+), texture (?P<Texture>-?\d+), calories (?P<Calories>-?\d+)")
+		df = pandas.DataFrame()
+		for line in ingredientDescriptions:
+			data = line_re.match(line).groupdict()
+			index = data.pop('Name')
+			data = dict([key, int(value)] for key, value in data.items())
+			df = df.append(pandas.DataFrame(data, [index]))
+		pandas.DataFrame.__init__(self, df)
+		#self.index.name = 'Name'
+		
+		# Add calculated columns to the Data Frame
+		self['TeaSpoon'] = 0
+	
+	# Print a nice little total row at the end
 	def __str__(self):
-		return f'{self.name.rjust(15)}\t{self.capacity}\t{self.durability}\t{self.flavor}\t{self.texture}\t{self.calories}\t{self.teaSpoons}'
+		lastRow = self.TeaSpoon.dot(self)
+		lastRow.name = f'Score = {self.totalScore()}'
+		lastRow.TeaSpoon = sum(self.TeaSpoon)
+		return self.append(lastRow).__str__()
 
-	def __repr__(self):
-		return self.__str__()
-
-	def header():
-		n = 'Name'
-		return f'{n.rjust(15)}\tCapacit\tDurabil\tFlavor\tTexture\tCalorie\tTeaSpoo'
-
-class Recipe:
-	def __init__(self, descriptionStringList, maxTeaSpoons = 100):
-		self.ingredients = [Ingredient(description) for description in descriptionStringList]
-		self.maxTeaSpoons = maxTeaSpoons
-
-	def __str__(self):
-		text = Ingredient.header()
-		for ingredient in self.ingredients:
-			text += '\n' + str(ingredient)
-		text += '\n' + f'{str(self.totalScore()).rjust(15)}\t{self.totalCapacity()}\t{self.totalDurability()}\t{self.totalFlavor()}\t{self.totalTexture()}\t{self.totalCalories()}\t{self.totalTeaSpoons()}'
-		return text
-
-	def __repr__(self):
-		return self.__str__()
-
-	def totalCapacity(self):
-		return max(0, sum(i.teaSpoons * i.capacity for i in self.ingredients))
-
-	def totalDurability(self):
-		return max(0, sum(i.teaSpoons * i.durability for i in self.ingredients))
-
-	def totalFlavor(self):
-		return max(0, sum(i.teaSpoons * i.flavor for i in self.ingredients))
-
-	def totalTexture(self):
-		return max(0, sum(i.teaSpoons * i.texture for i in self.ingredients))
-
-	def totalCalories(self):
-		return max(0, sum(i.teaSpoons * i.calories for i in self.ingredients))
-
-	def totalTeaSpoons(self):
-		return sum(i.teaSpoons for i in self.ingredients)
-
+	def divisions(self, remainingIngredients, remainingTeaSpoons = 100):
+	    if remainingIngredients == 1:
+	        yield [remainingTeaSpoons]
+	    else:
+	        for tsp in range(0, remainingTeaSpoons + 1):
+	            for right in self.divisions(remainingIngredients - 1, remainingTeaSpoons - tsp):
+	                yield [tsp] + right
+	                
 	def totalScore(self):
-		return self.totalCapacity() * self.totalDurability() * self.totalFlavor() * self.totalTexture()
-
-	def findBestCookie(self):
-		for spoon in range(100):
-			bestIngredients = []
-			bestValue = -1
-
-			# Find the ingredient which increases the score the most
-			for index, ingredient in enumerate(self.ingredients):
-				ingredient.teaSpoons += 1
-				if (bestValue < self.totalScore()):
-					bestIngredients = [index]
-					bestValue = self.totalScore()
-				elif (bestValue == self.totalScore()):
-					bestIngredients += [index]
-				ingredient.teaSpoons -= 1
-
-			# Increment one of the ingredients which increases the score the most by 1
-			bestIngredient = random.choice(bestIngredients)
-			self.ingredients[bestIngredient].teaSpoons += 1
-
-			thereIsAnImprovement = True
-			currentTotal = self.totalScore()
-			while thereIsAnImprovement:
-				thereIsAnImprovement = False
-				for i in self.ingredients:
-					for j in self.ingredients:
-						i.teaSpoons -= 1
-						j.teaSpoons += 1
-						if currentTotal < self.totalScore():
-							thereIsAnImprovement = True
-							currentTotal = self.totalScore()
-						else:
-							i.teaSpoons += 1
-							j.teaSpoons -= 1
-
-		return self
-
-	# Try every combination of sprinkles and chocolate (the other 2 are unique then)
-	def findSecondBestCookie(self):
-		bestIngredients = []
-		bestValue = -1
-		for sprinkles in range(101):
-			# 400 - 8S - 7C <= 100 - C - S    / + 8S+C-400
-			# -6C <= 7S - 300    / : (-6)
-			# C >= 7S / 6 - 50
-			# 0 <= 400 - 8S - 7C    / + 7C
-			# 7C <= 400 - 8S    / : 7
-			# C <= (400 - 8S) / 7
-			minC = int((7 * sprinkles + 5) / 6) - 50
-			maxC = int((400 - 8 * sprinkles + 5) / 7)
-			for chocolate in range(minC, maxC):
-				sugar = 400 - 8 * sprinkles - 7 * chocolate # guaranteened to be between 0-100
-				candy = 100 - sugar - sprinkles - chocolate
-				self.ingredients[0].teaSpoons = sugar
-				self.ingredients[1].teaSpoons = sprinkles
-				self.ingredients[2].teaSpoons = candy
-				self.ingredients[3].teaSpoons = chocolate
-				if bestValue < self.totalScore():
-					bestValue = self.totalScore()
-					bestIngredients = [sugar, sprinkles, candy, chocolate]
-
-		for i in range(4):
-			self.ingredients[i].teaSpoons = bestIngredients[i]
-
+		score = max(0, self.Capacity.dot(self.TeaSpoon))
+		score *= max(0, self.Durability.dot(self.TeaSpoon))
+		score *= max(0, self.Flavor.dot(self.TeaSpoon))
+		score *= max(0, self.Texture.dot(self.TeaSpoon))
+		return score
+	
+	def findBestCookie(self, teaSpoonTarget = 100, calorieTarget = None):
+		ingredients = len(self.index)
+		bestScore = -1
+		bestRecipe = []
+		for division in self.divisions(ingredients):
+			self.TeaSpoon = division
+			if calorieTarget != None and self.Calories.dot(self.TeaSpoon) != calorieTarget:
+				continue
+			if bestScore < self.totalScore():
+				bestScore = self.totalScore()
+				bestRecipe = division
+		self.TeaSpoon = bestRecipe
 		return self
 
 smallExample = [
 	'Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8',
 	'Cinnamon: capacity 2, durability 3, flavor -2, texture -1, calories 3']
-
-assert Recipe(smallExample, 100).findBestCookie().totalScore() == 62842880
+assert Recipe(smallExample).findBestCookie(100).totalScore() == 62842880
+assert Recipe(smallExample).findBestCookie(100, 500).totalScore() == 57600000
 
 # Display info message
-print("\nGive a list of ingredient descriptions:\n");
-
-inputStringList = utility.readInputList()
-
-# First part random gradient search finds the second best cookie 1 out of 10 times :-)
-recipe = Recipe(inputStringList)
-while recipe.findBestCookie().totalScore() == 0:
-	recipe = Recipe(inputStringList)
-
-recipe2 = Recipe(inputStringList).findSecondBestCookie()
+print("Give a list of ingredient descriptions:\n");
+ingredientDescriptions = utility.readInputList()
 
 # Display results
-print(recipe)
-print(recipe2)
+print(Recipe(ingredientDescriptions).findBestCookie(100))
+print(Recipe(ingredientDescriptions).findBestCookie(100, 500))

@@ -1,12 +1,5 @@
 import utility # my own utility.pl file
 
-# The input should only contain '(' and ')' characters
-def checkInput(instructionString):
-	numOpenParenthesis = instructionString.count('(')
-	numCloseParenthesis = instructionString.count(')')
-	numOtherCharacters = len(instructionString) - numOpenParenthesis - numCloseParenthesis
-	print(f"Check input: '(' = {numOpenParenthesis}, ')' = {numCloseParenthesis}, other = {numOtherCharacters}\n")
-
 # To what floor do the instructions take Santa?
 def lastFloor(instructionString):
 	numOpenParenthesis = instructionString.count('(')
@@ -25,32 +18,23 @@ assert lastFloor(')())())') == -3
 
 # What is the position of the character that causes Santa to first enter the basement?
 def firstEnteringBasement(instructionString):
-
-	floorIncrement = {
-		'(' : 1,
-		')' : -1}
+	floorIncrement = {'(' : 1, ')' : -1}
 	currentFloor = 0
-	firstEnteringBasement = -1
 	basement = -1
 
 	for index, character in enumerate(instructionString):
-		increment = floorIncrement.get(character, 0)
-		currentFloor += increment
+		currentFloor += floorIncrement.get(character, 0) # increment with zero for non-() characters
 		if currentFloor == basement:
-			firstEnteringBasement = index + 1
-			break
+			return index + 1 # basement is reached at this position
 
-	return firstEnteringBasement
+	return -1
 
 assert firstEnteringBasement(')') == 1
 assert firstEnteringBasement('()())') == 5
 
 # Display info message
-print("\nGive a string of '(' and ')' characters, where '(' means go up one floor, while ')' means go one floor down.\n");
-
-instructionString = utility.readInputList()[0]
-
-checkInput(instructionString)
+print("Give a string of '(' and ')' characters, where '(' means go up one floor, while ')' means go one floor down.\n");
+instructionString = utility.readInputList(joinedWith = '')
 
 # Display results
-print(f"lastFloor = {lastFloor(instructionString)}, firstEnteringBasement = {firstEnteringBasement(instructionString)}")
+print(f"{lastFloor(instructionString) = }, {firstEnteringBasement(instructionString) = }")

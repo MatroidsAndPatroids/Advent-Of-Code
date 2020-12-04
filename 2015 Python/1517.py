@@ -4,23 +4,15 @@ import utility # my own utility.pl file
 class Eggnog:
 	def __init__(self, containerList, eggnogLiters):
 		self.eggnogLiters = eggnogLiters
-		self.containers = []
-		self.minimumNumberOfContainers = 1000000
-		self.differentMinimumContainers = 0
-		for container in containerList:
-			assert container.isnumeric()
-			self.containers.append(int(container))
+		self.containers = sorted(list(map(int, containerList)), reverse = True)
 
 	def __str__(self):
-		text = f'{self.eggnogLiters} Liters of eggnog in {len(self.containers)} containers: '
-		for container in self.containers:
-			text += f'{container}, '
-		return text
+		s = f'{self.eggnogLiters}L eggnog in {len(self.containers)} containers: {self.containers.__str__()}\n'
+		s += f'{self.numberOfDifferentSolutions = }\n{self.minimumNumberOfContainers = }, {self.differentMinimumContainers = }, '
+		return s
 
-	def __repr__(self):
-		return self.__str__()
-
-	def countSubTree(self, remainingContainers, remainingLiters, numContainers):
+	# Count the number of different solutions for a subtree
+	def countSolutionsInSubTree(self, firstIndex, remainingLiters, numContainers):
 		if remainingLiters == 0:
 			if numContainers < self.minimumNumberOfContainers:
 				self.minimumNumberOfContainers = numContainers
@@ -31,33 +23,24 @@ class Eggnog:
 		elif remainingLiters < 0:
 			return 0
 
-		count = 0
-		for index in range(len(remainingContainers)):
-			newRemainingContainers = remainingContainers[index + 1:]
-			newRemainingLiters = remainingLiters - remainingContainers[index]
-			count += self.countSubTree(newRemainingContainers, newRemainingLiters, numContainers + 1)
-		return count
+		return sum(self.countSolutionsInSubTree(i + 1, remainingLiters - self.containers[i], numContainers + 1) \
+				for i in range(firstIndex, len(self.containers)))
 
 	def combinations(self):
 		self.minimumNumberOfContainers = 1000000
 		self.differentMinimumContainers = 0
-		return self.countSubTree(self.containers, self.eggnogLiters, 0)
+		self.numberOfDifferentSolutions = self.countSolutionsInSubTree(0, self.eggnogLiters, 0)
+		return self
 
 smallExample = ['20', '15', '10', '5', '5']
-eggnogExample = Eggnog(smallExample, 25)
-print(eggnogExample)
-assert eggnogExample.combinations() == 4
-assert eggnogExample.minimumNumberOfContainers == 2
-assert eggnogExample.differentMinimumContainers == 3
+smallEggnog = Eggnog(smallExample, 25).combinations()
+assert smallEggnog.numberOfDifferentSolutions == 4
+assert smallEggnog.minimumNumberOfContainers == 2
+assert smallEggnog.differentMinimumContainers == 3
 
 # Display info message
-print("\nGive a list of container sizes in liters:\n")
-
+print("Give a list of container sizes in liters:\n")
 containerList = utility.readInputList()
-eggnog = Eggnog(containerList, 150)
-print(eggnog)
 
 # Display results
-print(f'Number of different combinations: {eggnog.combinations()}')
-print(f'Minimum number of containers: {eggnog.minimumNumberOfContainers}, {eggnog.differentMinimumContainers} times')
-
+print(Eggnog(containerList, 150).combinations())

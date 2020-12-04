@@ -1,72 +1,54 @@
-import re
 import utility # my own utility.pl file
+import re # match
+import numpy # zeros, slice, clip
 
 class LigthBulbGrid:
+	jumpTable1 = {
+		'turn on' : (lambda state: 1),
+		'turn off' : (lambda state: 0),
+		'toggle' : (lambda state: 1 - state)}
+	jumpTable2 = {
+		'turn on' : (lambda state: state + 1),
+		'turn off' : (lambda state: state - 1),
+		'toggle' : (lambda state: state + 2)}
+
 	def __init__(self, height, width):
-		self.gridList = [0] * height * width
 		self.height = height
 		self.width = width
-		LigthBulbGrid.evaluate = {
-			'turn on' : (lambda state: 1),
-			'turn off' : (lambda state: 0),
-			'toggle' : (lambda state: 1 - state)}
-		LigthBulbGrid.evaluateNew = {
-			'turn on' : (lambda state: state + 1),
-			'turn off' : (lambda state: max(0, state - 1)),
-			'toggle' : (lambda state: state + 2)}
+		self.grid = numpy.zeros((height, width), dtype = int)
 
-	def countLightOn(self):
-		return sum(self.gridList)
+	def lightsOn(self):
+		return self.grid.sum()
 
-	def execute(self, jumpTable, command, i1, j1, i2, j2):
-		assert 0 <= i1 <= i2 < self.height
-		assert 0 <= j1 <= j2 < self.width
-		rowSegmentLength = j2 - j1 + 1
-		for index in range(i1 * self.width + j1, i2 * self.width + j1 + 1, self.width):
-			# for each row update the subrow using the given command
-			self.gridList[index:index+rowSegmentLength] = [jumpTable[command](value) for value in self.gridList[index:index+rowSegmentLength]]
+	# Parse 'turn on 489,959 through 759,964'
+	def execute(self, instructions, part2 = False):
+		for line in instructions:
+			jumpTable = LigthBulbGrid.jumpTable2 if part2 else LigthBulbGrid.jumpTable1
+			
+			match = re.match("(toggle|turn on|turn off) (\d+),(\d+) through (\d+),(\d+)", line)
+			action = match.group(1)
+			i1, j1, i2, j2 = map(int, match.group(2, 3, 4, 5))
+			assert 0 <= i1 <= i2 < self.height
+			assert 0 <= j1 <= j2 < self.width
+			
+			t = slice(i1, i2 + 1), slice(j1, j2 + 1)
+			self.grid[t] = jumpTable[action](self.grid[t])
+			self.grid.clip(min = 0)
 		return self
 
-	def executeInstruction(self, jumpTable, instructionString):
-		if not instructionString:
-			return self
-
-		instructions = re.split(',| ', instructionString)
-		if len(instructions) == 7:
-			# concatenate ['turn', 'on'] into ['turn on']
-			instructions[0:2] = [f'{instructions[0]} {instructions[1]}']
-		#print(instructions)
-		assert len(instructions) == 6
-		
-		command = instructions[0]
-		i1 = int(instructions[1])
-		j1 = int(instructions[2])
-		i2 = int(instructions[4])
-		j2 = int(instructions[5])
-		self.execute(jumpTable, command, i1, j1, i2, j2)
-		return self
-
-assert LigthBulbGrid(1000, 1000).executeInstruction(LigthBulbGrid.evaluate, 'turn on 0,0 through 999,999').countLightOn() == 1000000
-assert LigthBulbGrid(1000, 1000).executeInstruction(LigthBulbGrid.evaluate, 'toggle 0,0 through 999,0').countLightOn() == 1000
-assert LigthBulbGrid(1000, 1000).executeInstruction(LigthBulbGrid.evaluate, 'turn on 499,499 through 500,500').countLightOn() == 4
-
-assert LigthBulbGrid(1000, 1000).executeInstruction(LigthBulbGrid.evaluateNew, 'turn on 0,0 through 0,0').countLightOn() == 1
-assert LigthBulbGrid(1000, 1000).executeInstruction(LigthBulbGrid.evaluateNew, 'toggle 0,0 through 999,999').countLightOn() == 2000000
-
-# Display info message
-print("\nGive a list of light bulb setting instructions:\n");
-
-inputStringList = utility.readInputList()
-
-grid = LigthBulbGrid(1000,1000)
-for instruction in inputStringList:
-	grid.executeInstruction(LigthBulbGrid.evaluate, instruction)
-
-newGrid = LigthBulbGrid(1000,1000)
-for instruction in inputStringList:
-	newGrid.executeInstruction(LigthBulbGrid.evaluateNew, instruction)
-
-# Display results
-print (f'numOfLigthBulbsOn = {grid.countLightOn()}')
-print (f'numOfLigthBulbsOnNew = {newGrid.countLightOn()}')
-
+if __name__ == '__main__':	
+	assert LigthBulbGrid(1000, 1000).execute(['turn on 0,0 through 999,999']).lightsOn() == 1000000
+	assert LigthBulbGrid(1000, 1000).execute(['toggle 0,0 through 999,0']).lightsOn() == 1000
+	assert LigthBulbGrid(1000, 1000).execute(['turn on 499,499 through 500,500']).lightsOn() == 4
+	
+	assert LigthBulbGrid(1000, 1000).execute(['turn on 0,0 through 0,0'], True).lightsOn() == 1
+	assert LigthBulbGrid(1000, 1000).execute(['toggle 0,0 through 999,999'], True).lightsOn() == 2000000
+	
+	# Display info message
+	print("Give a list of light bulb setting instructions:\n");
+	instructionList = utility.readInputList()
+	
+	# Display results
+	numberOfBulbsOn = LigthBulbGrid(1000,1000).execute(instructionList).lightsOn()
+	totalBrightness = LigthBulbGrid(1000,1000).execute(instructionList, True).lightsOn()
+	print (f'{numberOfBulbsOn = }, {totalBrightness = }')

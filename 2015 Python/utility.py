@@ -1,61 +1,47 @@
-import sys
-import os.path
+import sys # argv
+import os.path # splitext, basename, isfile
+import inspect # stack for finding the filename of the function caller
 
-# Retreive the input string needed for the task
+# Retreive a list of input strings needed for the task OR
+# concatenate the list of input strings into one string, if $joinedWith is given.
 #
-# There are 3 possible inputs
-# 1. read existing text file given in the first command line argument
-# 2. use first command line argument as input (when no such text file exists)
-# 3. ask keyboard input from the user (when no command line argument is given)
-
-def readInput():
+# There are 4 possible ways to execute the function's caller script 'foo.py'
+# 1. python foo.py                       (tries to read foo.txt as input, if it exists)
+# 2. python foo.py                       (asks keyboard input, if foo.txt doesn't exist)
+# 3. python foo.py inputfile             (tries to read inputfile as input, if it exists)
+# 4. python foo.py line1 line2 ... lineN (argv[1:] becomes the input list, if line1 is not an existing file)
+def readInputList(joinedWith = None):
 
 	commandLineArgumentCount = len(sys.argv)
 
 	if commandLineArgumentCount > 1:
-		inputString = sys.argv[1]
-		if (os.path.isfile(inputString)):
-			print(f'Command line argument is also a file. Reading {inputString}')
-			inputFile = open(inputString, "r")
-			inputString = inputFile.read()
-		else:
-			print('Command line argument is not a file, thus it becomes the input string.')
+		inputFileName = sys.argv[1]
 	else:
-		inputString = input('No command line argument given, please enter an input string')
+		callersFileName = inspect.stack()[1].filename
+		withOutExtension = str(os.path.splitext(os.path.basename(callersFileName))[0])
+		inputFileName = withOutExtension + ".txt"
 
-	print(f'Input string lenght = {len(inputString)}\n')
-
-	return inputString
-
-# Retreive a list of input strings needed for the task
-#
-# There are 3 possible inputs
-# 1. read existing text file given in the first command line argument
-# 2. use first command line argument as input (when no such text file exists)
-# 3. ask keyboard input from the user (when no command line argument is given)
-
-def readInputList():
-
-	commandLineArgumentCount = len(sys.argv)
-
-	if commandLineArgumentCount > 1:
-		filename = sys.argv[1]
-		if (os.path.isfile(filename)):
-			print(f'First command line argument is also a file. Reading {filename}')
-			inputFile = open(filename, "r")
-			inputString = inputFile.read()
-			inputStringList = inputString.split('\n')
-		else:
-			print('First command line argument is not a file, thus it becomes the input string.')
-			inputStringList = sys.argv[1:]
+	if (os.path.isfile(inputFileName)):
+		text = f'Reading file: {inputFileName}'
+		inputFile = open(inputFileName, "r")
+		inputString = inputFile.read()
+		inputStringList = inputString.split('\n')
+	elif commandLineArgumentCount > 1:
+		text = 'First command line argument is not a file, thus it becomes the input string'
+		inputStringList = sys.argv[1:]
 	else:
-		inputString = input('No command line argument given, please enter an input string list separated by spaces:\n')
+		text = 'Given by hand'
+		inputString = input('No command line argument given, please enter a list by hand, separated by spaces:\n')
 		inputStringList = inputString.split(' ')
 
 	# Delete last line if empty
 	if inputStringList and not inputStringList[-1]:
 		del inputStringList[-1]
 
-	print(f'Input list lenght = {len(inputStringList)}\n')
+	lines = len(inputStringList)
+	characters = sum(len(line) for line in inputStringList)
+	print(f'{text} ({lines} lines, {characters} characters)\n')
 
-	return inputStringList
+	if joinedWith == None:
+		return inputStringList
+	return joinedWith.join(inputStringList)

@@ -1,78 +1,39 @@
 import utility # my own utility.pl file
+import re # re.split
+import operator # eq, gt, lt
 
 # Parse 'Sue 1: goldfish: 9, cars: 0, samoyeds: 9'
 class Aunt:
-	def __init__(self, descriptionString):
-		self.things = {}
-		list = descriptionString.split(' ')
-		self.name = list[0] + ' ' + list[1][:-1]
-		for index in range(2, len(list), 2):
-			key = list[index][:-1]
-			value = list[index + 1]
-			if value[-1] == ',':
-				value = value[:-1]
-			self.things[key] = int(value)
+	comparators = {
+		'cats': operator.gt,
+		'trees': operator.gt,
+		'pomeranians': operator.lt,
+		'goldfish': operator.lt}
+
+	def __init__(self, auntDescription):
+		# Parse 'Sue 29: vizslas: 6, pomeranians: 3, akitas: 6'
+		token = re.split(': |, ', auntDescription)
+		self.name = token[0]
+		self.things = {token[i]: int(token[i + 1]) for i in range(1, len(token), 2)}
 
 	def __str__(self):
-		text = self.name + ': '
-		for key, value in self.things.items():
-			text += f'{key}: {value}, '
-		return text
+		return self.name + ': ' + self.things.__str__()
 
-	def __repr__(self):
-		return self.__str__()
-
-	def __eq__(self, other):
-		for key, value in self.things.items():
-			if key in other.things and other.things[key] != value:
-				return False
-		return True
-
-	def __ne__(self, other):
-		return not self.__eq__(other)
-
-	def __le__(self, other):
-		for key, value in self.things.items():
-			if key in other.things:
-				if key == 'cats' or key == 'trees':
-					if other.things[key] >= value:
-						return False
-				elif key == 'pomeranians' or key == 'goldfish':
-					if other.things[key] <= value:
-						return False
-				else:
-					if other.things[key] != value:
-						return False
-		return True
-
-clue = 'Sue Clue: children: 3, cats: 7, samoyeds: 2, pomeranians: 3, akitas: 0, vizslas: 0, goldfish: 5, trees: 3, cars: 2, perfumes: 1'
-clueAunt = Aunt(clue)
-print(clueAunt)
+	def match(self, other, comparators = {}):
+		return all(t not in other.things or comparators.get(t, operator.eq)(v, other.things[t]) \
+				for t, v in self.things.items())
 
 # Display info message
-print("\nGive a list of ingredient descriptions:\n")
-
-auntList = []
-descriptionList = utility.readInputList()
-for description in descriptionList:
-	auntList.append(Aunt(description))
-
-matchingAunts = []
-for aunt in auntList:
-	if aunt == clueAunt:
-		matchingAunts.append(aunt)
-
-matchingAunts2 = []
-for aunt in auntList:
-	if aunt <= clueAunt:
-		matchingAunts2.append(aunt)
+print("Give a list of aunt descriptions:\n")
+auntDescriptions = utility.readInputList()
+clue = 'Sue Clue: children: 3, cats: 7, samoyeds: 2, pomeranians: 3, akitas: 0, vizslas: 0, goldfish: 5, trees: 3, cars: 2, perfumes: 1'
+realSue = Aunt(clue)
 
 # Display results
-print('First attempt:')
-for aunt in matchingAunts:
-	print(aunt)
+aunts = [Aunt(description) for description in auntDescriptions]
+matchingAunts = [aunt for aunt in aunts if aunt.match(realSue)]
+matchingAunts2 = [aunt for aunt in aunts if aunt.match(realSue, Aunt.comparators)]
 
-print('\nSecond attempt:')
-for aunt in matchingAunts2:
-	print(aunt)
-
+print(realSue)
+print(f'Match 1: {[aunt.__str__() for aunt in matchingAunts]}')
+print(f'Match 2: {[aunt.__str__() for aunt in matchingAunts2]}')

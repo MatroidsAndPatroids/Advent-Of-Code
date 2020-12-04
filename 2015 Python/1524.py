@@ -61,7 +61,7 @@ class Sleigh:
 			# Subtract elements or the last group from the list of remaining elements
 			remaining = [weight for weight in remaining if weight not in self.solution[-1]]
 
-		print(f'Final solution: {self}\n')
+		print(f'Final solution: {self}')
 		return self
 
 smallExample = [1, 2, 3, 4, 5, 7, 8, 9, 10, 11]
@@ -69,11 +69,11 @@ assert Sleigh(smallExample, 3).bestConfiguration().solutionGroupQE() == 99
 assert Sleigh(smallExample, 4).bestConfiguration().solutionGroupQE() == 44
 
 # Display info message
-print("\nGive a list of sleigh weights:\n")
+print("Give a list of sleigh weights:\n")
 inputStringList = utility.readInputList()
 
 # Display results
-print(f'QE = {Sleigh(inputStringList, 3).bestConfiguration().solutionGroupQE()}')
-print(f'QE = {Sleigh(inputStringList, 4).bestConfiguration().solutionGroupQE()}')
+print(f'QE3 = {Sleigh(inputStringList, 3).bestConfiguration().solutionGroupQE()}')
+print(f'QE4 = {Sleigh(inputStringList, 4).bestConfiguration().solutionGroupQE()}')
 
 

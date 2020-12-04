@@ -1,66 +1,55 @@
 import utility # my own utility.pl file
+import re # finditer, subn
 
-def appendElement(dictionary, key, element):
-	if key in dictionary:
-		dictionary[key].append(element)
-	else:
-		dictionary[key] = [element]
-
-
-# Parse 'Al => ThF'
 class Medicine:
-	def __init__(self, replacements, molecule):
-		self.molecule = molecule
-		self.replacements = {}
+	def __init__(self, replacements, startingMolecule):
+		self.startingMolecule = startingMolecule
+		self.replacements = []
+		self.reversed = []
 		self.shortestPath = 0
 		for replacement in replacements:
-			pair = replacement.split(' => ')
-			assert len(pair) == 2
-			key = pair[0]
-			element = pair[1]
-			appendElement(self.replacements, key, element)
+			# Parse 'Al => ThF'
+			inputMolecule, outputMolecule = replacement.split(' => ')
+			self.replacements.append((inputMolecule, outputMolecule))
+			self.reversed.append((outputMolecule, inputMolecule))
+		# order by the greatest reduction first
+		self.reversed.sort(key = lambda a: len(a[1]) - len(a[0]))
 
 	def __str__(self):
-		text = f'{self.molecule}\n'
-		for key, value in self.replacements.items():
-			text += f"{key} => [{' '.join(value)}]\n"
-		return text
+		return f'{self.startingMolecule}\n{self.replacements}'
 
-	def countDifferentResults(self):
-		results = {}
-		for key, value in self.replacements.items():
-			start = self.molecule.find(key, 0)
-			while start >= 0:
-				for element in value:
-					newMolecule = self.molecule[:start] + element + self.molecule[start + len(key):]
-					if newMolecule in results:
-						results[newMolecule] += 1
-					else:
-						results[newMolecule] = 1
-				start = self.molecule.find(key, start + 1)
-		return len(results)
-
-	def shortestSubPath(self, subMolecule, pathLength):
-		#print(f'{pathLength} {subMolecule}')
-		if subMolecule == 'e':
-			# goal reached
-			self.shortestPath = pathLength
-		if pathLength >= self.shortestPath:
-			# solution is not optimal, prune tree
-			return
-
-		for key, value in self.replacements.items():
-			for element in value:
-				start = subMolecule.find(element, 0)
-				while start >= 0:
-					newMolecule = subMolecule[:start] + key + subMolecule[start + len(element):]
-					self.shortestSubPath(newMolecule, pathLength + 1)
-					start = subMolecule.find(element, start + 1)
-
-	def shortestPathToElectron(self):
-		self.shortestPath = 1000000
-		self.shortestSubPath(self.molecule, 0)
-		return self.shortestPath
+	def replaceAll(self, molecules, replacements, target = 'e'):
+		results = set()
+		for molecule in molecules:
+			for input, output in replacements:
+				if output == target:
+					if input == molecule:
+						return {target}
+				else:
+					for match in re.finditer(input, molecule):
+						results.add(molecule[:match.start()] + output + molecule[match.end():])
+		return results
+	
+	def distinctMoleculesAfterOneReplacement(self):
+		return len(self.replaceAll({self.startingMolecule}, self.replacements, target = None))
+	
+	def shortestPathTo(self, target = 'e'):
+		currentMolecule = self.startingMolecule
+		steps = 0
+		foundReplacement = True
+		while foundReplacement:
+			if currentMolecule == target:
+				return steps
+			foundReplacement = False
+			for input, output in self.reversed:
+				if input in currentMolecule:
+					# Greedily replace with the highest order replacement possible
+					currentMolecule, newSteps = re.subn(input, output, currentMolecule)
+					#print(f'{newSteps} x {input} -> {output}')
+					steps += newSteps
+					foundReplacement = True
+					break
+		return -1
 
 smallExample = [
 	'e => H',
@@ -68,20 +57,18 @@ smallExample = [
 	'H => HO',
 	'H => OH',
 	'O => HH']
-
-assert Medicine(smallExample, 'HOH').countDifferentResults() == 4
-assert Medicine(smallExample, 'HOH').shortestPathToElectron() == 3
-assert Medicine(smallExample, 'HOHOHO').countDifferentResults() == 7
-assert Medicine(smallExample, 'HOHOHO').shortestPathToElectron() == 6
+assert Medicine(smallExample, 'HOH').distinctMoleculesAfterOneReplacement() == 4
+assert Medicine(smallExample, 'HOHOHO').distinctMoleculesAfterOneReplacement() == 7
+assert Medicine(smallExample, 'HOH').shortestPathTo("e") == 3
+assert Medicine(smallExample, 'HOHOHO').shortestPathTo("e") == 6
 
 # Display info message
-print("\nGive a list of molecule replacement and the molecule itself:\n")
-
-inputStringList = utility.readInputList()
-medicine = Medicine(inputStringList[:-2], inputStringList[-1])
+print("Give a list of molecule replacement and the molecule itself:\n")
+replacements = utility.readInputList()
+startingMolecule = replacements.pop()
+replacements.pop() # pop emtpy line between the dictionary and the starting molecule
 
 # Display results
-print(medicine)
-print(medicine.countDifferentResults())
-print(medicine.shortestPathToElectron())
-
+medicine = Medicine(replacements, startingMolecule)
+print(f'{medicine.distinctMoleculesAfterOneReplacement() = }')
+print(f'{medicine.shortestPathTo("e") = }')

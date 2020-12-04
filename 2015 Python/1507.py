@@ -1,68 +1,44 @@
 import utility # my own utility.pl file
 
-# A single wire representing holding a value of a gate
-# Each wire refers to the main wire container, which is a WireName->WireValue dictionary
-class Wire:
-	def __init__(self, dictionary, expression):
-		Wire.maxValue = 65535
-		self.dictionary = dictionary
-		self.value = -1
-		self.expression = expression.split(' ')
-		assert len(self.expression) > 2
-		self.name = self.expression[-1]
-		self.expression[-2:] = []
-		assert self.name not in self.dictionary
-		self.dictionary[self.name] = self
+# A set of wires each with a lower case identifier and a signal provided by a gate.
+class Circuit:
+	operator = {
+		'AND':    lambda x, y: x & y, # bitwise AND
+		'OR':     lambda x, y: x | y, # bitwise OR
+		'NOT':    lambda x, y: ~y & 0xFFFF,  # bitwise inversion, only one actual operand
+		'LSHIFT': lambda x, y: (x << y) & 0xFFFF, # left-shift
+		'RSHIFT': lambda x, y: x >> y, # right-shift
+		'537':     lambda x, y: y}  # direct assignment, only one actual operand (537 looks like the word SET)
+
+	def __init__(self, instructionList):
+		self.wireValue = {} 
+		for instruction in instructionList:
+			# 'dd RSHIFT 2 -> de' string becomes {'de': 'dd RSHIFT 2'} in the dictionary
+			expression, targetWire = instruction.split(' -> ')
+			self.wireValue[targetWire] = expression
 
 	def __str__(self):
-		return f"{self.name} = {self.expression} = {self.value}"
+		lines = ''
+		for wireId, value in self.wireValue:
+			lines += f'{wireId} -> {value}\n'
+		return lines
 
-	def __repr__(self):
-		return self.__str__()
-
-	def evaluate(self, symbol):
-		if symbol.isnumeric():
-			val = int(symbol)
-			assert 0 <= val <= Wire.maxValue
-			return val
-		assert symbol in self.dictionary
-		return self.dictionary[symbol].getValue()
-
-	def getValue(self):
-		if self.value > -1:
-			return self.value
-
-		exprArgs = len(self.expression)
-		if exprArgs == 1:
-			# literal
-			self.value = self.evaluate(self.expression[0])
-		elif exprArgs == 2:
-			# unary operator
-			operator = self.expression[0]
-			assert operator == 'NOT'
-			arg1 = self.evaluate(self.expression[1])
-			self.value = Wire.maxValue - arg1
-		else:
-			# binary operator
-			assert exprArgs == 3
-			operator = self.expression[1]
-			arg1 = self.evaluate(self.expression[0])
-			arg2 = self.evaluate(self.expression[2])
-			if self.expression[1] == 'AND':
-				self.value = arg1 & arg2
-			elif self.expression[1] == 'OR':
-				self.value = arg1 | arg2
-			elif self.expression[1] == 'LSHIFT':
-				self.value = arg1 << arg2
-			elif self.expression[1] == 'RSHIFT':
-				self.value = arg1 >> arg2
-			else:
-				assert false and "Unknown operator error"
+	# Calculate and return the value of a given wire identified by its ID
+	def getValue(self, wireId):
+		# For integer or integer string just return as integer
+		if wireId.isnumeric():
+			return int(wireId)
 		
-		self.value %= Wire.maxValue
-		return self.value
+		paddedExpression = '537 537 ' + str(self.wireValue[wireId])
+		# 'dd RSHIFT 2' -> ['537', '537', 'dd', 'RSHIFT','2'], and 'dd' -> ['537', '537', '537', '537', 'dd']
+		wireId1, gate, wireId2 = paddedExpression.split()[-3:]
+		value = self.operator[gate](self.getValue(wireId1), self.getValue(wireId2))
+		
+		# overwrite the dictionary expression with its calculated value
+		self.wireValue[wireId] = value
+		return value
 
-testInstructions = [
+smallExample = [
 	'123 -> x',
 	'456 -> y',
 	'x AND y -> d',
@@ -71,53 +47,25 @@ testInstructions = [
 	'y RSHIFT 2 -> g',
 	'NOT x -> h',
 	'NOT y -> i']
+smallCircuit = Circuit(smallExample)
 
-testWires = {}
-for instruction in testInstructions:
-	if instruction:
-		Wire(testWires, instruction)
-
-assert testWires['d'].getValue() == 72
-assert testWires['e'].getValue() == 507
-assert testWires['f'].getValue() == 492
-assert testWires['g'].getValue() == 114
-assert testWires['h'].getValue() == 65412
-assert testWires['i'].getValue() == 65079
-assert testWires['x'].getValue() == 123
-assert testWires['y'].getValue() == 456
+assert smallCircuit.getValue('d') == 72
+assert smallCircuit.getValue('e') == 507
+assert smallCircuit.getValue('f') == 492
+assert smallCircuit.getValue('g') == 114
+assert smallCircuit.getValue('h') == 65412
+assert smallCircuit.getValue('i') == 65079
+assert smallCircuit.getValue('x') == 123
+assert smallCircuit.getValue('y') == 456
 
 # Display info message
-print("\nGive a list of wiring instructions:\n");
-
-inputStringList = utility.readInputList()
-
-Wires = {}
-for instruction in inputStringList:
-	if instruction:
-		Wire(Wires, instruction)
+print("Give a list of wiring instructions:\n");
+expressionList = utility.readInputList()
 
 # Display results
-valueOfWireA = Wires["a"].getValue()
-
-for name, wire in Wires.items():
-	print(wire)
-
-NewWires = {}
-for instruction in inputStringList:
-	if instruction:
-		Wire(NewWires, instruction)
-
-NewWires["b"].value = valueOfWireA
-
-for name, wire in Wires.items():
-	print(wire)
-
-newValueOfWireA = NewWires["a"].getValue()
-
-print('\n\n\n\n')
-for name, wire in NewWires.items():
-	print(wire)
-
-print (f'wire a: {valueOfWireA}')
-print (f'new wire a: {newValueOfWireA}')
+valueOfWireA = Circuit(expressionList).getValue('a')
+Circuit2 = Circuit(expressionList)
+Circuit2.wireValue['b'] = valueOfWireA
+valueOfWireA2 = Circuit2.getValue('a')
+print (f'{valueOfWireA = }, {valueOfWireA2 = }')
 

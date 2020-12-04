@@ -1,117 +1,77 @@
 import utility # my own utility.pl file
-
-# Parse 'Al => ThF'
-class Item:
-	def __init__(self, itemText):
-		properties = itemText.split()
-		self.name = properties[0]
-		self.cost = int(properties[1])
-		self.damage = int(properties[2])
-		self.armor = int(properties[3])
-
-	def __str__(self):
-		return f"{self.name.ljust(15, ' ')}\t{self.cost}\t{self.damage}\t{self.armor}"
-
-	def header(typeName):
-		return f"{typeName.ljust(15, ' ')}\tCost\tDamage\tArmor"
-
-class Fighter:
-	def __init__(self, name, hitPoints, damage = 0, armor = 0, opponent = None):
-		self.name = name
-		self.hitPoints = hitPoints
-		self.maxHP = hitPoints
-		self.damage = damage
-		self.armor = armor
-		self.opponent = opponent
-
-	def reset(self):
-		self.hitPoints = self.maxHP
-
-	def attack(self):
-		self.opponent.hitPoints -= max(1, self.damage - self.opponent.armor)
-		return self.opponent.hitPoints <= 0
-
-	def __str__(self):
-		return f'{self.name}: {self.hitPoints}/{self.damage}/{self.armor}'
+import collections # namedtuple
+import math # ceil
+import itertools # procudt, combinations
 
 class Shop:
-	def __init__(self, itemList):
-		self.items = []
-		self.weaponRange = []
-		self.armorRange = []
-		self.ringRange = []
+	Item = collections.namedtuple('Item', ['name', 'cost', 'damage', 'armor'])
 
-		currentRange = self.weaponRange
-		for item in itemList:
-			if 'Weapons:' in item:
-				currentRange = self.weaponRange
-			elif 'Armor:' in item:
-				currentRange = self.armorRange
-			elif 'Rings:' in item:
-				currentRange = self.ringRange
+	def __init__(self, shopItems):
+		self.weapons = []
+		self.armor = []
+		self.rings = []
+		
+		containers = {'Weapons:' : self.weapons, 'Armor:' : self.armor, 'Rings:' : self.rings}
+		currentContainer = None
+		for itemText in shopItems:
+			# Parse 'Warhammer    25     6       0'
+			name, cost, damage, armor = itemText.split()
+			if name in containers:
+				currentContainer = containers[name]
 			else:
-				currentRange.append(len(self.items))
-				self.items.append(Item(item))
+				currentContainer.append(self.Item(name, int(cost), int(damage), int(armor)))
 
 	def __str__(self):
-		text = f'{Item.header("Weapons:")}\n'
-		for i in self.weaponRange:
-			text += f'{self.items[i]}\n'
-		text += f'{Item.header("Armor:")}\n'
-		for i in self.armorRange:
-			text += f'{self.items[i]}\n'
-		text += f'{Item.header("Rings:")}\n'
-		for i in self.ringRange:
-			text += f'{self.items[i]}\n'
+		text = ''
+		for container in [self.weapons, self.armor, self.rings]:
+			text += '-----------------------------\n'
+			for item in container:
+				text += f'{item.name.rjust(15)}\t{item.cost}/{item.damage}/{item.armor}\n'
 		return text
 
-
 class Game:
-	def __init__(self, bossHP, bossDMG, bossARM, shop):
-		self.shop = shop
-		self.fighters = [Fighter('Player', 100)]
-		self.fighters += [Fighter('Boss', bossHP, bossDMG, bossARM, self.fighters[0])]
-		self.fighters[0].opponent = self.fighters[1]
+	def __init__(self, playerHP, bossStats, shopItems):
+		self.playerHP = playerHP
+		self.playerDmg = 0
+		self.playerArmor = 0
+		self.bossHP = int(bossStats[0].split(' ')[-1])
+		self.bossDmg = int(bossStats[1].split(' ')[-1])
+		self.bossArmor = int(bossStats[2].split(' ')[-1])
+		self.shop = Shop(shopItems)
 
-	def __str__(self):
-		return f'{self.fighters[0]}\t{self.fighters[1]}'
-
-	def simulate(self):
-		for fighter in self.fighters:
-			fighter.reset()
-
-		for turn in range(100):
-			for fighter in self.fighters:
-				if fighter.attack():
-					return fighter.name == 'Player'
-
-	def supplyPlayer(self, itemIndexes):
-		# Remove any items first
+	def supplyPlayer(self, items):
+		# reset player stats first
+		self.playerDmg = 0
+		self.playerArmor = 0
 		cost = 0
-		self.fighters[0].damage = 0
-		self.fighters[0].armor = 0
-
-		for i in itemIndexes:
-			item = self.shop.items[i]
-			self.fighters[0].damage += item.damage
-			self.fighters[0].armor += item.armor
+		
+		for item in items:
+			self.playerDmg += item.damage
+			self.playerArmor += item.armor
 			cost += item.cost
-
 		return cost
-
-	def tryThemAll(self, bestCase = True):
-		bestCost = 1000000 if bestCase else 0
-		for w in shop.weaponRange:
-			for a in shop.armorRange:
-				for r1 in shop.ringRange:
-					for r2 in shop.ringRange:
-						if r1 < r2:
-							cost = self.supplyPlayer([w, a, r1, r2])
-							if bestCase and cost < bestCost and self.simulate() \
-							or not bestCase and cost > bestCost and not self.simulate():
-								print(f'{self}\t{cost} = {self.shop.items[w].name} + {self.shop.items[a].name} + {self.shop.items[r1].name} + {self.shop.items[r2].name}')
-								bestCost = cost
+	
+	# Search the tree of all combinations of items until the endgames are found
+	def tryAllItems(self, cheapestWin = True):
+		bestCost = 1000000 if cheapestWin else 0
+		for weapon, armor, rings in itertools.product(self.shop.weapons, self.shop.armor, itertools.combinations(self.shop.rings, 2)):
+			cost = self.supplyPlayer([weapon, armor, rings[0], rings[1]])
+			# Calculate who wins based on the stats only
+			bossHpLossPerRound = max(1, self.playerDmg - self.bossArmor)
+			playerHpLossPerRound = max(1, self.bossDmg - self.playerArmor)
+			rounds = math.ceil(self.playerHP / playerHpLossPerRound)
+			playerWins = (self.bossHP <= bossHpLossPerRound * rounds)
+			
+			if cheapestWin and cost < bestCost and playerWins \
+			or not cheapestWin and cost > bestCost and not playerWins:
+				print(f'{cost} = {weapon.name} + {armor.name} + {rings[0].name} + {rings[1].name} = {self.playerDmg}/{self.playerArmor}')
+				bestCost = cost
 		return bestCost
+
+# Display info message
+print("Let the games begin!\n")
+playerHP = 100
+bossStats = utility.readInputList()
 
 shopItems = [
 	'Weapons:    Cost  Damage  Armor',
@@ -137,17 +97,7 @@ shopItems = [
 	'Defense+2    40     0       2',
 	'Defense+3    80     0       3']
 
-# Display info message
-print("\nLet the games begin!\n")
-
-inputStringList = utility.readInputList()
-
-shop = Shop(shopItems)
-print(shop)
-game = Game(104, 8, 1, shop)
-print(game)
-
 # Display results
-print(game.tryThemAll())
-print(game.tryThemAll(False))
+print(f'Cheapest Victory: {Game(playerHP, bossStats, shopItems).tryAllItems()}')
+print(f'Most expensive Defeat: {Game(playerHP, bossStats, shopItems).tryAllItems(False)}')
 

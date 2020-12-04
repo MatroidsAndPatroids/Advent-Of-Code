@@ -1,80 +1,57 @@
 import utility # my own utility.pl file
-import math # sqrt, prod
+import primePy.primes
 
-def increase(dictionary, key):
-	if key in dictionary:
-		dictionary[key] += 1
-	else:
-		dictionary[key] = 1
+# The number of elves visiting the house is the sum of the housenumber's divisors
+# The sum of the divisors of a number is multiplicative, eg. s(n * m) = s(n) * s(m) iff (n, m) = 1
+# This function creates a list of divisor sums for all numbers
+def divisorSumListWithNoBound(maxSum):
+	sumList = [0, 1, 3]
+	while sumList[-1] < maxSum:
+		nextNumber = len(sumList)
+		p = primePy.primes.factor(nextNumber)
+		nextNumber = int(nextNumber / p)
+		pPowered = p
+		
+		while True:
+			quotient, remainder = divmod(nextNumber, p)
+			if remainder == 0:
+				nextNumber = quotient
+				pPowered *= p
+			else:
+				break
+		if nextNumber == 1:
+			# nextNumber = p^k, therefore s(p^k) = (p^(k+1) - 1) / (p - 1)
+			# (this the formula for s(p^k) = 1 + p + p^2 + ... + p^k = (p^(k+1) - 1) / (p - 1))
+			sumList.append(int((pPowered * p - 1) / (p - 1)))
+		else:
+			# nextNumber = p^k * someNumber, therefore s(p^k * someNumber) = s(p^k) * s(someNumber)
+			# (since someNumber is not divisible by p anymore)
+			sumList.append(sumList[pPowered] * sumList[nextNumber])
+	return sumList
 
-class Primes:
-	def __init__(self):
-		self.primes = [2]
+# The number of elves visiting the house is the sum of the housenumber's below-50 divisors
+# This function creates a list of such below-50 divisors
+def divisorSumList(maxSum, divisorUpperBound = None):
+	if divisorUpperBound == None:
+		return divisorSumListWithNoBound(maxSum)
+	
+	sumList = [0, 1]
+	while sumList[-1] < maxSum:
+		nextNumber = len(sumList)
+		sumOfDivisors = 0
+		for divisor in range(1, divisorUpperBound + 1):
+			quotient, remainder = divmod(nextNumber, divisor)
+			if remainder == 0:
+				sumOfDivisors += quotient
+		sumList.append(sumOfDivisors)
+	return sumList
 
-	def __str__(self):
-		return ' '.join(self.primes)
+# Display info message
+print("Give the minimum number of presents to be found:\n")
+minPresents = int(utility.readInputList(joinedWith = ''))
 
-	def __repr__(self):
-		return self.__str__()
-
-	def findSmallestDivisor(self, number):
-		root = int(math.sqrt(number))
-
-		for n in range(self.primes[-1] + 1,root + 1):
-			if self.findSmallestDivisor(n) == n:
-				self.primes.append(n)
-
-		for p in self.primes:
-			if number % p == 0:
-				return p
-			if root <= p:
-				return number
-		return number
-
-	def primeFactors(self, number):
-		root = int(math.sqrt(number))
-
-		factors = {}
-		while number > 1:
-			p = self.findSmallestDivisor(number)
-			while number % p == 0:
-				number = int(number / p)
-				increase(factors, p)
-
-		return factors
-
-	def sumOfDivisors(self, number):
-		factors = self.primeFactors(number)
-		return int(math.prod((p ** (k + 1) - 1) / (p - 1) for p, k in factors.items()))
-
-	def countPresents(self, houseNumber):
-		count = 0
-		for i in range(1, min(houseNumber + 1, 50)):
-			if houseNumber % i == 0:
-				count += int(houseNumber / i)
-		return count
-
-for n in range(10):
-	print(f'{n} -> {Primes().sumOfDivisors(n)}')
-
-print(Primes().primeFactors(3310000))
-n = 2*2*3*5*7*11*13*17
-print(f'{n} {Primes().sumOfDivisors(n)}')
-
-P = Primes()
-for i in range(1):
-	if i % 10000 == 0:
-		print(f'{i} -> {P.sumOfDivisors(i)}')
-	if 3310000 < P.sumOfDivisors(i):
-		print(f'{i} -> {P.sumOfDivisors(i)}')
-		break
-
-print('Presents:')
-for i in range(10000000):
-	limit = int(33100000 / 11)
-	if i % 10000 == 0:
-		print(f'{i} -> {P.countPresents(i)}')
-	if limit < P.countPresents(i):
-		print(f'{i} -> {P.countPresents(i)}')
-		break
-
+# Display results
+sumList = divisorSumList(int(minPresents / 10))
+print(f'Presents for all houses: House {len(sumList) - 1} -> {sumList[-1] * 10} presents')
+sumList = divisorSumList(int(minPresents / 11), divisorUpperBound=50)
+print(f'Presents for 50 houses only: House {len(sumList) - 1} -> {sumList[-1] * 11} presents')

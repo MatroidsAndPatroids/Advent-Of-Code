@@ -1,70 +1,53 @@
 import utility # my own utility.pl file
+import re # compile
+import pandas # data frame
 
-# Parse 'Comet can fly 14 km/s for 10 seconds, but then must rest for 127 seconds.'
-
-class Reindeer:
-	def __init__(self, descriptionString, travelSeconds = 0):
-		str = descriptionString.split(' ')
-		assert len(str) == 15
-		self.name = str[0]
-		self.kmPerSec = int(str[3])
-		self.flySeconds = int(str[6])
-		self.restSeconds = int(str[13])
-		self.travelSeconds = 0
-		self.flownKilometers = 0
-		self.winningPoints = 0
-		self.calculateFlownKilometers(travelSeconds)
-
-	def __str__(self):
-		return f'{self.name}\t{self.kmPerSec}\t{self.flySeconds}\t{self.restSeconds}\t{self.travelSeconds}\t{self.flownKilometers}\t{self.winningPoints}'
-
-	def __repr__(self):
-		return self.__str__()
-
-	def calculateFlownKilometers(self, travelSeconds):
-		self.travelSeconds = travelSeconds
-		period = self.flySeconds + self.restSeconds
-		numPeriods = travelSeconds // period
-		lastPeriod = travelSeconds % period
-		totalflySeconds = numPeriods * self.flySeconds + min(lastPeriod, self.flySeconds)
-		self.flownKilometers = totalflySeconds * self.kmPerSec
-
-	def increaseWinningPoints(self):
-		self.winningPoints += 1
+class Herd(pandas.DataFrame):
+	def __init__(self, reindeerDescriptions):
+		# Parse 'Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8'
+		line_re = re.compile(r"^(?P<Name>\w+) can fly (?P<Speed>-?\d+) km.s for (?P<FlightDur>-?\d+) seconds,.* for (?P<RestDur>-?\d+) seconds.")
+		df = pandas.DataFrame()
+		for line in reindeerDescriptions:
+			data = line_re.match(line).groupdict()
+			index = data.pop('Name')
+			data = dict([key, int(value)] for key, value in data.items())
+			df = df.append(pandas.DataFrame(data, [index]))
+		pandas.DataFrame.__init__(self, df)
+		#self.index.name = 'Name'
+		
+		# Add calculated columns to the Data Frame
+		self['Avg. Speed'] = self.Speed * self.FlightDur / (self.FlightDur + self.RestDur)
+		# Current duration = 0-FlightDur when flying and (-RestDur)-(-1) while resting
+		self['Duration'] = self.FlightDur
+		self['Distance'] = 0
+		self['Score'] = 0
+	
+	def race(self, travelTime):
+		for i in range(travelTime):
+			# Update Duration
+			self.loc[self.Duration <= -self.RestDur, 'Duration'] = self.FlightDur
+			self.Duration -= 1
+			# Update Distance
+			self.loc[self.Duration >= 0, 'Distance'] += self.Speed
+			# Update Score
+			self.loc[self.Distance == max(self.Distance), 'Score'] += 1
+		self.Distance = pandas.to_numeric(self.Distance, downcast = 'signed')
+		return self		
 
 smallExample = [
 	'Comet can fly 14 km/s for 10 seconds, but then must rest for 127 seconds.',
 	'Dancer can fly 16 km/s for 11 seconds, but then must rest for 162 seconds.']
-
-assert Reindeer(smallExample[0], 1000).flownKilometers == 1120
-assert Reindeer(smallExample[1], 1000).flownKilometers == 1056
+smallHerd = Herd(smallExample).race(1000)
+assert smallHerd.loc['Comet', 'Distance'] == 1120
+assert smallHerd.loc['Dancer', 'Distance'] == 1056
+assert smallHerd.loc['Comet', 'Score'] == 312
+assert smallHerd.loc['Dancer', 'Score'] == 689
 
 # Display info message
-print("\nGive a list of reindeer descriptions:\n");
-
-inputStringList = utility.readInputList()
-
-travelSeconds = 2503
-Herd = [Reindeer(line, travelSeconds) for line in inputStringList]
-
-Herd2 = [Reindeer(line, 0) for line in inputStringList]
-for t in range(1, travelSeconds + 1):
-	for reindeer in Herd2:
-		reindeer.calculateFlownKilometers(t)
-	maxDistance = max(reindeer.flownKilometers for reindeer in Herd2)
-	for reindeer in Herd2:
-		if reindeer.flownKilometers == maxDistance:
-			reindeer.increaseWinningPoints()
-		print(reindeer)
+print("Give a list of reindeer descriptions:\n");
+reindeerDescriptions = utility.readInputList()
+travelTime = 2503
 
 # Display results
-maxDistance = max(reindeer.flownKilometers for reindeer in Herd)
-for reindeer in Herd:
-	if reindeer.flownKilometers == maxDistance:
-		print(reindeer)
-
-maxPoints = max(reindeer.winningPoints for reindeer in Herd)
-for reindeer in Herd2:
-	if reindeer.winningPoints == maxPoints:
-		print(reindeer)
+print(Herd(reindeerDescriptions).race(travelTime))
 
