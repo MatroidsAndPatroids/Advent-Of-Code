@@ -18,9 +18,13 @@ def highestSeatNumber(boardingPasses):
 # Find the set of missing numbers amongst the list of seat numbers.
 def mySeatNumber(boardingPasses):
     existingSeatNumbers = list(map(seatNumber, boardingPasses))
-    missingSeats = [seat + 1 for seat in existingSeatNumbers
-                    if seat + 1 not in existingSeatNumbers]
-    return missingSeats[:-1] # exclude the highest element
+    
+    highest = highestSeatNumber(boardingPasses)
+    lowest = min(existingSeatNumbers)
+    allPossibleSeatNumbers = list(range(lowest, highest - 1))
+    
+    missingSeats = set(allPossibleSeatNumbers) - set(existingSeatNumbers)
+    return missingSeats
 
 # Check test cases
 smallExample = [
