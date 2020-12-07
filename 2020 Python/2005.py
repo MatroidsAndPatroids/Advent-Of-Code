@@ -1,5 +1,4 @@
 import utility # my own utility.pl file
-import re # match
 
 # The seat number is the binary version of the boarding pass, eg.
 # 'BFFFBBFRRR' -> BIN 1000110111 -> DEC 567
