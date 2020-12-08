@@ -1,67 +1,53 @@
 import utility # my own utility.pl file
 import re # match
 
-# Jump table for part2: key, value -> isValid (True or False)
+# Jump table: operator, value -> (accumulator delta, jump delta)
 jumpTable = {
-    'acc': lambda value: (value, 1),
-    'jmp': lambda value: (0, value),
-    'nop': lambda value: (0, 1)}
+    'acc': lambda deltaAcc: (deltaAcc, 1),
+    'jmp': lambda jump: (0, jump),
+    'nop': lambda dummy: (0, 1)}
 
-# Counts the number of valid passports in the list.
-def countValidPassports(passports, part2 = False):
-    accumulator = 0
-    visited = {}
-    currentOperation = 0
+# Jump table for part2: oldOperator -> newOperator
+replaceOperator = {
+    'jmp': 'nop',
+    'nop': 'jmp'}
+
+# Simulates the instructions until the first repeat or termination.
+# Returns the accelerator value in the end and a True/False value,
+# whether it is an infinite loop or the execution stops normally.
+# When replaceIndex is given, it will replace the operator given by it.
+def simulateBootCode(instructions, replaceIndex = -1):
+    accumulator = 0 # single global value
+    currentIndex = 0 # current instruction to execute
+    visitedIndex = set() # store all visited indexes as a set
+    infiniteLoop = False # set to True if we encounter an infinite loop
     
-    while currentOperation not in visited.keys() and 0 <= currentOperation < len(passports):
-        visited[currentOperation] = 1
-        operator, value = passports[currentOperation].split()
-        print(f'{operator = } {value = }')
-        accDiff, jump = jumpTable[operator](int(value))
-        currentOperation += jump
-        accumulator += accDiff
-
-    return accumulator
-
-# Counts the number of valid passports in the list.
-def countValidPassports(passports, part2 = False):
-    print(passports)
-    accumulator = 0
-    visited = {}
-    currentOperation = 0
-    infiniteLoop = False
-    
-    while 0 <= currentOperation < len(passports):
-        visited[currentOperation] = 1
-        operator, value = passports[currentOperation].split()
-        #print(f'{operator = } {value = }')
-        accDiff, jump = jumpTable[operator](int(value))
-        currentOperation += jump
-        accumulator += accDiff
+    while currentIndex in range(len(instructions)): # while instruction is valid
+        visitedIndex.add(currentIndex)
+        # eg. instructions[currentIndex] = 'acc +1'
+        operator, value = instructions[currentIndex].split()
         
-        if currentOperation in visited.keys():
+        if replaceIndex == currentIndex: # part 2
+            operator = replaceOperator.get(operator, operator)
+            
+        deltaAcc, jump = jumpTable[operator](int(value))
+        currentIndex += jump
+        accumulator += deltaAcc
+        
+        if currentIndex in visitedIndex: # infinite loop is found
             infiniteLoop = True
             break
 
     return accumulator, infiniteLoop
 
-def countPart2(passports):
-    for i in range(len(passports)):
-        if 'jmp' in passports[i]:
-            passports[i] = passports[i].replace('jmp', 'nop')
-        elif 'nop' in passports[i]:
-            passports[i] = passports[i].replace('nop', 'jmp')
-        
-        acc, infi = countValidPassports(passports)
-        print(f'{passports[i] = } {acc = } {infi = }')
-        if not infi:
-            return acc
-        
-        if 'jmp' in passports[i]:
-            passports[i] = passports[i].replace('jmp', 'nop')
-        elif 'nop' in passports[i]:
-            passports[i] = passports[i].replace('nop', 'jmp')
-            
+# Try to replace each line one by one if it solves the infinite loop problem.
+# Return the accumulator value at termination for the first solution.
+def accumulatorValueAfterReplace(instructions):
+    for index in range(len(instructions)):
+        accumulator, infiniteLoop = simulateBootCode(instructions, index)
+        if not infiniteLoop:
+            return accumulator, index
+     
     return -1
 
 # Check test cases
@@ -75,17 +61,15 @@ smallExample = [
     'acc +1',
     'jmp -4',
     'acc +6']
-print(countValidPassports(smallExample))
-assert countValidPassports(smallExample) == (5, True)
-print(countPart2(smallExample))
-assert countPart2(smallExample) == 8
+assert simulateBootCode(smallExample) == (5, True)
+assert accumulatorValueAfterReplace(smallExample) == (8, 7)
 
 
 
 # Display info message
-print("Give passport batch file:\n")
-passports = utility.readInputList()
+print("Give a list of instructions:\n")
+instructions = utility.readInputList()
 
 # Display results
-print(f'{countValidPassports(passports) = }')
-print(f'{countPart2(passports) = }')
+print(f'{simulateBootCode(instructions) = }')
+print(f'{accumulatorValueAfterReplace(instructions) = }')
