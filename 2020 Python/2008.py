@@ -1,5 +1,4 @@
 import utility # my own utility.pl file
-import re # match
 
 # Jump table: operator, value -> (accumulator delta, jump delta)
 jumpTable = {
@@ -41,14 +40,15 @@ def simulateBootCode(instructions, replaceIndex = -1):
     return accumulator, infiniteLoop
 
 # Try to replace each line one by one if it solves the infinite loop problem.
-# Return the accumulator value at termination for the first solution.
+# Return the accumulator value at termination for the first solution and its index.
 def accumulatorValueAfterReplace(instructions):
     for index in range(len(instructions)):
         accumulator, infiniteLoop = simulateBootCode(instructions, index)
         if not infiniteLoop:
+            # the instruction at index terminates with no infinite loop after replace
             return accumulator, index
      
-    return -1
+    return -1, -1
 
 # Check test cases
 smallExample = [
@@ -63,8 +63,6 @@ smallExample = [
     'acc +6']
 assert simulateBootCode(smallExample) == (5, True)
 assert accumulatorValueAfterReplace(smallExample) == (8, 7)
-
-
 
 # Display info message
 print("Give a list of instructions:\n")
