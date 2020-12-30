@@ -1,5 +1,5 @@
 import utility # my own utility.pl file
-import math # prod
+import math #  prod
 
 transformationTable = {
     0: lambda x, y: (x, y), # id, left side 0 <-> 4
