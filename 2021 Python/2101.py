@@ -1,6 +1,7 @@
-import utility # my own utility.pl file
+import utility # my own utility.py file
+import numpy as np
 
-small ="""
+smallExample ="""
 199
 200
 208
@@ -12,29 +13,19 @@ small ="""
 260
 263""".strip().split('\n')
 
-def increase(data):
-    count = 0
-    for i in range(0, len(data)-1):
-        if int(data[i+1]) - int(data[i]) > 0:
-            count += 1
-    return count
-def increase2(data):
-    count = 0
-    for i in range(0, len(data)-3):
-        if int(data[i+3]) - int(data[i]) > 0:
-            count += 1
-    return count
+def depthIncreaseRate(data, part2 = False):
+    overlap = 3 if part2 else 1
+    data = np.array(list(map(int, data)))
+    
+    return sum(data[overlap:] - data[:-overlap] > 0)
 
-print(increase(small))
-assert(increase(small) == 7)
-
-print(increase2(small))
-assert(increase2(small) == 5)
+assert(depthIncreaseRate(smallExample) == 7)
+assert(depthIncreaseRate(smallExample, True) == 5)
 
 # Display info message
-print("Give a list of instructions:\n");
-instructionList = utility.readInputList()
+print("Give sonar sweep readings:\n");
+depthMeasurements = utility.readInputList()
 
 # Display results
-print (f'{increase(instructionList) = }')
-print (f'{increase2(instructionList) = }')
+print (f'{depthIncreaseRate(depthMeasurements) = }')
+print (f'{depthIncreaseRate(depthMeasurements, part2 = True) = }')
